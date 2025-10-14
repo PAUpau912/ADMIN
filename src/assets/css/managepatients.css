@@ -1,0 +1,241 @@
+/* ===== Layout ===== */
+.layout-container {
+  display: flex;
+  min-height: 100vh;
+  background: #f6f8fa;
+  color: #222;
+  font-family: "Poppins", sans-serif;
+}
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem 2rem;
+}
+
+/* ===== Page Title and Button ===== */
+.page-content h2 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.add-patient-btn {
+  background-color: #007835;
+  color: #fff;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-bottom: 1.2rem;
+}
+
+.add-patient-btn:hover {
+  background-color: #005ed1;
+}
+
+/* ===== Table ===== */
+.patients-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.patients-table th,
+.patients-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e6e6e6;
+  text-align: left;
+}
+
+.patients-table th {
+  background-color: #f0f4f8;
+  font-weight: 600;
+}
+
+.patients-table tr:hover {
+  background-color: #f9fbff;
+}
+
+/* ===== Action Buttons ===== */
+.view-btn,
+.edit-btn,
+.delete-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 0 2px;
+  font-size: 0.9rem;
+}
+
+.view-btn {
+  background-color: #007835;
+  color: #fff;
+}
+
+.edit-btn {
+  background-color: #ffc107;
+  color: #fff;
+}
+
+.delete-btn {
+  background-color: #ff4e4e;
+  color: #fff;
+}
+
+.view-btn:hover { background-color: #007835; }
+.edit-btn:hover { background-color: #e0a800; }
+.delete-btn:hover { background-color: #d93838; }
+
+/* ===== Modal ===== */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+/* ✅ White input fields and dropdowns */
+.modal-content input,
+.modal-content select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  background-color: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #046307;
+  color: #000000;
+  outline: none;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+/* ✅ Customize dropdown arrow (white style) */
+.modal-content select {
+  background-image: none;
+}
+
+/* ✅ Scrollbar style - white with green thumb */
+.modal-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 6px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #046307;
+  border-radius: 6px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #028a0f;
+}
+
+/* Spinner (arrow) color for Age input */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  filter: invert(31%) sepia(97%) saturate(570%) hue-rotate(86deg) brightness(95%) contrast(97%);
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  border: 1px solid #046307;
+}
+.modal-content {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 10px;
+  width: 95%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #222;
+}
+
+.modal-content h4 {
+  margin-top: 1rem;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+/* ===== View Modal ===== */
+.view-modal .patient-info p {
+  margin: 5px 0;
+  font-size: 0.95rem;
+}
+
+.logs-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.log-box {
+  background-color: #f8faff;
+  border: 1px solid #e0e6f0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.log-box h5 {
+  font-size: 1rem;
+  color: #007835;
+  margin-bottom: 0.6rem;
+}
+
+.log-box ul {
+  padding-left: 15px;
+}
+
+.log-box li {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+/* ===== Modal Buttons ===== */
+.modal-actions {
+  margin-top: 1.5rem;
+  text-align: right;
+}
+
+.save-btn,
+.cancel-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.save-btn {
+  background-color: #007835;
+  color: white;
+  margin-right: 10px;
+}
+
+.cancel-btn {
+  background-color: #aaa;
+  color: white;
+}
+
+.save-btn:hover { background-color: #007835; }
+.cancel-btn:hover { background-color: #888; }

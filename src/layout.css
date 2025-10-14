@@ -1,0 +1,18 @@
+.app-container {
+  display: flex;
+  min-width: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background: #fff;
+  border-right: 1px solid #ddd;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  background: #fff;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
