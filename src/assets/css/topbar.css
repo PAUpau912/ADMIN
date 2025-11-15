@@ -33,19 +33,20 @@
   font-weight: 700;
   color: #ffeb3b; /* bright yellow for emphasis */
 }
-.profile {
-  display: flex;
-  align-items: center;
-  margin-left: 20px; /* konting space sa kaliwa ng image */
-}
-
-.profile img {
-  width: 70px;   /* bawasan size para proportion */
+.profile img.topbar-profile {
+  width: 70px;
   height: 70px;
   border-radius: 50%;
-  border: 2px solid white;
   object-fit: cover;
+  border: 3px solid #198754;
+  margin-left: 10px;
+  transition: transform 0.2s ease-in-out;
 }
+
+.profile img.topbar-profile:hover {
+  transform: scale(1.05);
+}
+
 
 .topbar-content h3 {
   margin: 0;
@@ -93,3 +94,24 @@
   color: #046307;
   pointer-events: none;
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.archive-btn {
+  background-color: #f0ad4e;
+  border: none;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.archive-btn:hover {
+  background-color: #ec971f;
+}
+

@@ -79,7 +79,7 @@ span a {
 
 /* 🔴 Logout Button */
 .sidebar-logout {
-  margin-top: auto; /* siguradong nasa bottom */
+  margin-top: -14px; 
 }
 
 .logout-btn {

@@ -23,6 +23,17 @@
   border-collapse: collapse;
   margin-top: 20px;
 }
+.reports-table td {
+  white-space: normal;        /* allow multi-line */
+  word-wrap: break-word;      /* break long words if needed */
+  line-height: 1.4;
+  vertical-align: top;        /* align text to top for long content */
+  max-width: 500px;           /* optional limit para hindi sobrang lapad */
+  padding: 10px;
+}
+.reports-table th {
+  white-space: nowrap;
+}
 
 .reports-table th,
 .reports-table td {
@@ -169,4 +180,60 @@
 
 .cancel-btn:hover {
   background: #c82333;
+}
+.delete-btn{
+  background-color: #c82333;
+}
+.edit-btn,
+.delete-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 0 2px;
+  font-size: 0.9rem;
+}
+.edit-btn {
+  background-color: #ffc107;
+  color: #fff;
+}
+.archive-btn {
+  background-color: rgb(244, 67, 54);
+  color: #fff;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 0 2px;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+}
+.archive-btn:hover {
+  background-color: rgb(244, 67, 54);
+}
+
+/* Table cell alignment for actions */
+.reports-table td:last-child {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-start;
+}
+.status-dropdown{
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #046307;
+  border-radius: 5px;
+  background: #fff;
+  color: black;
+}
+.title-dropdown{
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #046307;
+  border-radius: 5px;
+  background: #fff;
+  color: black;
 }

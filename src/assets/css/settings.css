@@ -90,3 +90,111 @@
 .save-settings-btn:hover {
   background: #218838;
 }
+/* Profile Section */
+.profile-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 30px;
+  flex-direction: column;
+}
+
+.profile-pic-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-pic-container {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+.profile-pic {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #0f5132; /* green outline to match SPC theme */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Overlay camera icon */
+.upload-overlay {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background-color: #198754; /* green */
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: 0.3s;
+  border: 2px solid white;
+}
+
+.upload-overlay:hover {
+  background-color: #146c43;
+}
+
+.camera-icon {
+  color: white;
+  font-size: 18px;
+}
+
+.profile-text {
+  margin-top: 10px;
+  color: #198754;
+  font-weight: 500;
+}
+
+/*FILTER SECTION*/
+/* 🔹 Filter Section */
+.filter-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 10px;
+  padding: 10px 15px;
+  margin: 15px 0 20px;
+}
+
+.filter-section label {
+  font-weight: 600;
+  color: #333;
+}
+
+.filter-section input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  color: #333;
+}
+
+.filter-section input[type="date"]:focus {
+  border-color: #046307;
+  box-shadow: 0 0 5px rgba(4, 99, 7, 0.3);
+  outline: none;
+}
+
+.filter-section button {
+  background-color: #046307;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.filter-section button:hover {
+  background-color: #046307;
+}

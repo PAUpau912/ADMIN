@@ -1,22 +1,30 @@
 import React, { useEffect, useState } from "react";
-import "../assets/css/managepatients.css"; // reuse same CSS
+import "../assets/css/managedoctors.css";
 import Sidebar from "../components/sidebar";
 import Topbar from "../components/topbar";
 import supabase from "../supabaseClient";
 
 interface Doctor {
   id: number;
-  name: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
   specialization?: string;
   phone_number?: string;
   address?: string;
   gender?: string;
+  prc_license?: string;
+  hospital_affiliate?: string;
   user_id?: string | null;
   users?: { email: string };
 }
 
 interface DoctorFormData extends Partial<Doctor> {
   email?: string;
+  street?: string;
+  barangay?: string;
+  city?: string;
+  province?: string;
 }
 
 const ManageDoctors: React.FC = () => {
@@ -24,14 +32,23 @@ const ManageDoctors: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [filterSpecialization, setSpecialization] = useState("");
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [formData, setFormData] = useState<DoctorFormData>({
-    name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     specialization: "",
     phone_number: "",
     address: "",
     gender: "",
     email: "",
+    prc_license: "",
+    hospital_affiliate: "",
+    street: "",
+    barangay: "",
+    city: "",
+    province: "",
   });
 
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -42,192 +59,196 @@ const ManageDoctors: React.FC = () => {
   } | null>(null);
 
   // ✅ Fetch doctors
+  const fetchDoctors = async () => {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select(
+        "id, first_name, middle_name, last_name, specialization, phone_number, address, gender, prc_license, hospital_affiliate, user_id, users:user_id(email)"
+      )
+      .eq("is_archived", false)
+      .order("last_name", { ascending: true });
+
+    if (error) console.error("Error fetching doctors:", error);
+    else setDoctors(data || []);
+  };
+
   useEffect(() => {
-    const fetchDoctors = async () => {
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("*, users:user_id(email)");
-      if (error) console.error("Error fetching doctors:", error);
-      else setDoctors(data || []);
-    };
     fetchDoctors();
   }, []);
 
-// ✅ Add new doctor (clean + updated for no admin_id)
-const handleAddDoctor = async (formData: any) => {
-  try {
-    if (!formData.name?.trim()) {
-      alert("⚠️ Please enter the doctor's name.");
-      return;
-    }
+  // ✅ Combine address fields into one string
+  const getFullAddress = () => {
+    const parts = [
+      formData.street,
+      formData.barangay,
+      formData.city,
+      formData.province,
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
 
-    const email =
-      formData.email ||
-      `${formData.name.replace(/\s+/g, "").toLowerCase()}@tempmail.com`;
-    const defaultPassword = "123456";
-
-    // 🧩 Check if user already exists
-    const { data: existingUser, error: existingError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle(); // safer than .single()
-
-    if (existingError) throw existingError;
-
-    if (existingUser) {
-      alert("⚠️ This email is already registered.");
-      return;
-    }
-
-    // 🧩 Create a new user account in 'users' table
-    const { data: newUser, error: userError } = await supabase
-      .from("users")
-      .insert([
-        {
-          email,
-          username: formData.name.replace(/\s+/g, "").toLowerCase(),
-          full_name: formData.name,
-          password: defaultPassword,
-          role: "doctor",
-        },
-      ])
-      .select()
-      .single();
-
-    if (userError) throw userError;
-
-    // 🧩 Insert doctor into 'doctors' table
-    const { data: newDoctor, error: doctorError } = await supabase
-      .from("doctors")
-      .insert([
-        {
-          name: formData.name,
-          specialization: formData.specialization,
-          phone_number: formData.phone_number,
-          address: formData.address,
-          gender: formData.gender,
-          user_id: newUser.id, // ✅ only this reference
-        },
-      ])
-      .select("*, users:user_id(email)")
-      .single();
-
-    if (doctorError) throw doctorError;
-
-    // ✅ Update local state
-    setDoctors((prev) => [...prev, newDoctor]);
-    resetForm();
-
-    // ✅ Show credentials modal
-    setGeneratedCredentials({
-      name: formData.name,
-      email,
-      password: defaultPassword,
-    });
-    setShowCredentialsModal(true);
-  } catch (error: any) {
-    console.error("❌ Error adding doctor:", error);
-    alert("❌ Failed to add doctor. Check console for details.");
-  }
-};
-
-
-  // ✅ Update doctor
-  const handleUpdateDoctor = async () => {
-    if (!editingDoctor) return;
-
+  // ✅ Add or Update doctor
+  const handleSaveDoctor = async () => {
     try {
-      let userId = editingDoctor.user_id;
+      if (!formData.first_name?.trim() || !formData.last_name?.trim()) {
+        alert("⚠️ Please enter the doctor's first and last name.");
+        return;
+      }
 
-      if (!userId && formData.email) {
-        const defaultPassword = "123456";
+      if (!formData.email?.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
+        alert("⚠️ Please enter a valid email address.");
+        return;
+      }
+
+      if (!/^\d{11}$/.test(formData.phone_number || "")) {
+        alert("⚠️ Phone number must contain exactly 11 digits.");
+        return;
+      }
+
+      const fullName = `${formData.first_name} ${formData.middle_name || ""} ${formData.last_name}`.trim();
+      const fullAddress = getFullAddress();
+
+      if (editingDoctor) {
+        // 🩺 Update existing doctor
+        const { error } = await supabase
+          .from("doctors")
+          .update({
+            first_name: formData.first_name,
+            middle_name: formData.middle_name || null,
+            last_name: formData.last_name,
+            full_name: fullName,
+            specialization: formData.specialization,
+            phone_number: formData.phone_number,
+            address: fullAddress,
+            gender: formData.gender,
+            prc_license: formData.prc_license,
+            hospital_affiliate: formData.hospital_affiliate,
+          })
+          .eq("id", editingDoctor.id);
+
+        if (error) throw error;
+        alert("✅ Doctor updated successfully!");
+      } else {
+        // 🆕 Add new doctor
+        const generateRandomPassword = (length = 8) => {
+          const chars =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+          return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+        };
+        const randomPassword = generateRandomPassword();
+
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", formData.email)
+          .maybeSingle();
+
+        if (existingUser) {
+          alert("⚠️ This email is already registered.");
+          return;
+        }
+
         const { data: newUser, error: userError } = await supabase
           .from("users")
           .insert([
             {
               email: formData.email,
-              password: defaultPassword,
+              username: fullName.replace(/\s+/g, "").toLowerCase(),
+              full_name: fullName,
+              password: randomPassword,
               role: "doctor",
             },
           ])
           .select()
           .single();
+
         if (userError) throw userError;
-        userId = newUser.id;
+
+        const { error: doctorError } = await supabase.from("doctors").insert([
+          {
+            first_name: formData.first_name,
+            middle_name: formData.middle_name || null,
+            last_name: formData.last_name,
+            full_name: fullName,
+            specialization: formData.specialization,
+            phone_number: formData.phone_number,
+            address: fullAddress,
+            gender: formData.gender,
+            prc_license: formData.prc_license,
+            hospital_affiliate: formData.hospital_affiliate,
+            user_id: newUser.id,
+          },
+        ]);
+
+        if (doctorError) throw doctorError;
+
+        setGeneratedCredentials({
+          name: fullName,
+          email: formData.email!,
+          password: randomPassword,
+        });
+        setShowCredentialsModal(true);
+        alert("✅ Doctor added successfully!");
       }
 
-      const { data, error } = await supabase
-        .from("doctors")
-        .update({
-          name: formData.name,
-          specialization: formData.specialization,
-          phone_number: formData.phone_number,
-          address: formData.address,
-          gender: formData.gender,
-          user_id: userId,
-        })
-        .eq("id", editingDoctor.id)
-        .select("*, users:user_id(email)")
-        .single();
-
-      if (error) throw error;
-
-      setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? data : d)));
+      await fetchDoctors();
       resetForm();
-    } catch (err: any) {
-      alert("Error updating doctor: " + err.message);
+    } catch (error: any) {
+      console.error("❌ Error saving doctor:", error);
+      alert("❌ Failed to save doctor. Check console for details.");
     }
   };
 
-  // ✅ Delete doctor
-  const handleDeleteDoctor = async (id: number) => {
-    const { error } = await supabase.from("doctors").delete().eq("id", id);
+  // ✅ Archive doctor
+  const handleDeleteDoctor = async (doctorId: number) => {
+    const confirmArchive = window.confirm("Are you sure you want to archive this doctor?");
+    if (!confirmArchive) return;
+
+    const { error } = await supabase
+      .from("doctors")
+      .update({ is_archived: true })
+      .eq("id", doctorId);
+
     if (error) {
-      alert("Error deleting doctor: " + error.message);
-      return;
+      console.error("Error archiving doctor:", error);
+      alert("❌ Failed to archive doctor.");
+    } else {
+      alert("✅ Doctor archived successfully!");
+      fetchDoctors();
     }
-    setDoctors(doctors.filter((d) => d.id !== id));
-  };
-
-  const openAddForm = () => {
-    setEditingDoctor(null);
-    setFormData({
-      name: "",
-      specialization: "",
-      phone_number: "",
-      address: "",
-      gender: "",
-      email: "",
-    });
-    setShowForm(true);
-  };
-
-  const openEditForm = (doctor: Doctor) => {
-    setEditingDoctor(doctor);
-    setFormData({
-      ...doctor,
-      email: doctor.users?.email || "",
-    });
-    setShowForm(true);
   };
 
   const resetForm = () => {
     setFormData({
-      name: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
       specialization: "",
       phone_number: "",
       address: "",
       gender: "",
       email: "",
+      prc_license: "",
+      hospital_affiliate: "",
+      street: "",
+      barangay: "",
+      city: "",
+      province: "",
     });
     setEditingDoctor(null);
     setShowForm(false);
   };
 
-  const filteredDoctors = doctors.filter((d) =>
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ Combine search and specialization filters
+  const filteredDoctors = doctors.filter((d) => {
+    const fullName = `${d.first_name} ${d.middle_name || ""} ${d.last_name}`.toLowerCase();
+    const matchesSearch = fullName.includes(searchQuery.toLowerCase());
+    const matchesSpecialization =
+      filterSpecialization === "" ||
+      d.specialization?.toLowerCase() === filterSpecialization.toLowerCase();
+
+    return matchesSearch && matchesSpecialization;
+  });
 
   return (
     <div className="layout-container">
@@ -237,37 +258,72 @@ const handleAddDoctor = async (formData: any) => {
 
         <div className="page-content">
           <h2>Manage Doctors</h2>
-          <button className="add-patient-btn" onClick={openAddForm}>
+          <button className="add-doctor-btn" onClick={() => setShowForm(true)}>
             Add Doctor
           </button>
 
-          <table className="patients-table">
+          <div className="filter-section">
+            <label htmlFor="specializationFilter">Filter by Specialization: </label>
+            <select
+              id="specializationFilter"
+              value={filterSpecialization}
+              onChange={(e) => setSpecialization(e.target.value)}
+            >
+              <option value="">All Specializations</option>
+              <option value="Endocrinologist">Endocrinologist</option>
+              <option value="Pediatric Endocrinologist">Pediatric Endocrinologist</option>
+              <option value="General Endocrinologist">General Endocrinologist</option>
+            </select>
+          </div>
+
+          <table className="doctors-table">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Specialization</th>
+                <th>PRC License</th>
+                <th>Hospital</th>
                 <th>Phone</th>
-                <th>Gender</th>
+                <th>Sex</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredDoctors.map((doctor) => (
                 <tr key={doctor.id}>
-                  <td>{doctor.name}</td>
+                  <td>{`${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`}</td>
                   <td>{doctor.specialization || "—"}</td>
+                  <td>{doctor.prc_license || "—"}</td>
+                  <td>{doctor.hospital_affiliate || "—"}</td>
                   <td>{doctor.phone_number || "—"}</td>
                   <td>{doctor.gender || "—"}</td>
-                  <td>
-                    <button className="edit-btn" onClick={() => openEditForm(doctor)}>
-                      Edit
-                    </button>
-                    <button
-                      className="delete-btn"
-                      onClick={() => handleDeleteDoctor(doctor.id)}
-                    >
-                      Delete
-                    </button>
+                  <td className="actions-cell">
+                    <div className="action-buttons">
+                      <button
+                        className="edit-btn"
+                        onClick={() => {
+                          const addressParts = (doctor.address || "").split(",").map((a) => a.trim());
+                          setEditingDoctor(doctor);
+                          setFormData({
+                            ...doctor,
+                            email: doctor.users?.email || "",
+                            street: addressParts[0] || "",
+                            barangay: addressParts[1] || "",
+                            city: addressParts[2] || "",
+                            province: addressParts[3] || "",
+                          });
+                          setShowForm(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="archive-btn"
+                        onClick={() => handleDeleteDoctor(doctor.id)}
+                      >
+                        Archive
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -282,56 +338,109 @@ const handleAddDoctor = async (formData: any) => {
           <div className="modal-content">
             <h3>{editingDoctor ? "Edit Doctor" : "Add New Doctor"}</h3>
 
-            <input
-              type="text"
-              placeholder="Doctor Name"
-              value={formData.name || ""}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
+            <div className="name-fields">
+              <input
+                type="text"
+                placeholder="First Name"
+                value={formData.first_name || ""}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Middle Name (Optional)"
+                value={formData.middle_name || ""}
+                onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Last Name"
+                value={formData.last_name || ""}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+              />
+            </div>
 
             <input
-              type="text"
-              placeholder="Specialization"
-              value={formData.specialization || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, specialization: e.target.value })
-              }
+              type="email"
+              placeholder="Email"
+              value={formData.email || ""}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              disabled={!!editingDoctor}
             />
 
-            <input
-              type="text"
-              placeholder="Phone Number"
-              value={formData.phone_number || ""}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-            />
-
-            {/* Gender Dropdown */}
             <select
-              value={formData.gender || ""}
-              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              value={formData.specialization || ""}
+              onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
             >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
+              <option value="">Select Specialization</option>
+              <option value="Endocrinologist">Endocrinologist</option>
+              <option value="Pediatric Endocrinologist">Pediatric Endocrinologist</option>
+              <option value="General Endocrinologist">General Endocrinologist</option>
             </select>
 
             <input
               type="text"
-              placeholder="Address"
-              value={formData.address || ""}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="PRC License Number"
+              value={formData.prc_license || ""}
+              onChange={(e) => setFormData({ ...formData, prc_license: e.target.value })}
+            />
+
+            <input
+              type="text"
+              placeholder="Hospital Affiliation"
+              value={formData.hospital_affiliate || ""}
+              onChange={(e) => setFormData({ ...formData, hospital_affiliate: e.target.value })}
+            />
+
+            <input
+              type="text"
+              placeholder="Phone Number (11 digits)"
+              value={formData.phone_number || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d{0,11}$/.test(value)) setFormData({ ...formData, phone_number: value });
+              }}
+            />
+
+            <select
+              value={formData.gender || ""}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            >
+              <option value="">Select Sex</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+
+            {/* ✅ Split Address Fields */}
+            <h4>Address</h4>
+            <input
+              type="text"
+              placeholder="Street / House No."
+              value={formData.street || ""}
+              onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Barangay"
+              value={formData.barangay || ""}
+              onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="City / Municipality"
+              value={formData.city || ""}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Province / Region"
+              value={formData.province || ""}
+              onChange={(e) => setFormData({ ...formData, province: e.target.value })}
             />
 
             <div className="modal-actions">
-              {editingDoctor ? (
-                <button className="save-btn" onClick={handleUpdateDoctor}>
-                  Update
-                </button>
-              ) : (
-                <button className="save-btn" onClick={() => handleAddDoctor(formData)}>
-                  Save
-                </button>
-              )}
+              <button className="save-btn" onClick={handleSaveDoctor}>
+                {editingDoctor ? "Update" : "Save"}
+              </button>
               <button className="cancel-btn" onClick={resetForm}>
                 Cancel
               </button>
@@ -340,25 +449,14 @@ const handleAddDoctor = async (formData: any) => {
         </div>
       )}
 
-      {/* GENERATED CREDENTIALS MODAL */}
+      {/* CREDENTIALS MODAL */}
       {showCredentialsModal && generatedCredentials && (
         <div className="modal-overlay">
           <div className="modal-content credentials-modal">
             <h3>🩺 Doctor Account Created Successfully!</h3>
-            <p>
-              <strong>Name:</strong> {generatedCredentials.name}
-            </p>
-            <p>
-              <strong>Email:</strong> {generatedCredentials.email}
-            </p>
-            <p>
-              <strong>Temporary Password:</strong> {generatedCredentials.password}
-            </p>
-
-            <p className="note">
-              Please provide these credentials to the doctor so they can log in.
-            </p>
-
+            <p><strong>Name:</strong> {generatedCredentials.name}</p>
+            <p><strong>Email:</strong> {generatedCredentials.email}</p>
+            <p><strong>Password:</strong> {generatedCredentials.password}</p>
             <div className="modal-actions">
               <button
                 className="copy-btn"
@@ -369,13 +467,9 @@ const handleAddDoctor = async (formData: any) => {
                   alert("✅ Credentials copied to clipboard!");
                 }}
               >
-                Copy Credentials
+                Copy
               </button>
-
-              <button
-                className="close-btn"
-                onClick={() => setShowCredentialsModal(false)}
-              >
+              <button className="close-btn" onClick={() => setShowCredentialsModal(false)}>
                 Close
               </button>
             </div>

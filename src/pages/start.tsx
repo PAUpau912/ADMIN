@@ -224,9 +224,24 @@ const Home = () => {
               </div>
             )}
 
-            <button type="submit" className="LoginButton btn w-100">
-              {isSignUp ? "Sign Up" : "Login"}
-            </button>
+              {/* Login Button */}
+              <button type="submit" className="LoginButton btn w-100">
+                {isSignUp ? "Sign Up" : "Login"}
+              </button>
+
+              {/* Forgot Password */}
+              {!isSignUp && (
+                <div className="text-center mt-3">
+                  <button
+                    type="button"
+                    className="btn btn-link p-0"
+                    style={{ color: "#007835", textDecoration: "underline" }}
+                    onClick={() => navigate("/forgot-password")}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
           </form>
 
           <div className="SignUpLink text-center mt-3">
@@ -256,6 +271,7 @@ const Home = () => {
               </p>
             )}
           </div>
+          
         </div>
       </div>
     </div>

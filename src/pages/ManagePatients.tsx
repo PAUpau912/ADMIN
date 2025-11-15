@@ -3,10 +3,15 @@ import "../assets/css/managepatients.css";
 import Sidebar from "../components/sidebar";
 import Topbar from "../components/topbar";
 import supabase from "../supabaseClient";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface Patient {
   id: number;
   name: string;
+  first_name?: string;
+  middle_name?: string | null;
+  last_name?: string;
   age?: number;
   date_of_birth?: string;
   address?: string;
@@ -15,17 +20,23 @@ interface Patient {
   doctor_id?: string;
   user_id?: string | null;
   gender: string;
-  doctors?: { name: string };
+  doctors?: { full_name: string };
   users?: { email: string };
 }
 
 interface Doctor {
   id: string;
-  name: string;
+  full_name: string;
 }
 
 interface PatientFormData extends Partial<Patient> {
   email?: string;
+  password?: string;
+  generatedPassword?: string;
+  street?: string;
+  barangay?: string;
+  city?: string;
+  province?: string;
 }
 
 const ManagePatients: React.FC = () => {
@@ -33,40 +44,41 @@ const ManagePatients: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterCondition, setFilterCondition] = useState("");
+  const [filterDoctor, setFilterDoctor] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
   const [formData, setFormData] = useState<PatientFormData>({
-    name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     age: undefined,
     gender: "",
     date_of_birth: "",
-    address: "",
+    street: "",
+    barangay: "",
+    city: "",
+    province: "",
     phone_number: "",
     condition: "",
     doctor_id: "",
     email: "",
+    password: "",
   });
-  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
-  const [generatedCredentials, setGeneratedCredentials] = useState<{
-    name: string;
-    email: string;
-    password: string;
-  } | null>(null);
-
-  const [cbgs, setCbgs] = useState<any[]>([]);
-  const [meals, setMeals] = useState<any[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [logins, setLogins] = useState<any[]>([]);
+  const [selectedDob, setSelectedDob] = useState<Date | null>(null);
 
   // ✅ Fetch patients
   useEffect(() => {
     const fetchPatients = async () => {
       const { data, error } = await supabase
         .from("patients")
-        .select("*, doctors(name), users(email)");
-      if (error) console.log(error);
-      else setPatients(data);
+        .select("*, doctors(full_name), users(email)")
+        .eq("is_archived", false)
+        .order("name", { ascending: true });
+
+      if (error) console.error(error);
+      else setPatients(data || []);
     };
     fetchPatients();
   }, []);
@@ -74,228 +86,221 @@ const ManagePatients: React.FC = () => {
   // ✅ Fetch doctors
   useEffect(() => {
     const fetchDoctors = async () => {
-      const { data, error } = await supabase.from("doctors").select("*");
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("id, full_name");
       if (error) console.error("Error fetching doctors:", error);
       setDoctors(data || []);
     };
     fetchDoctors();
   }, []);
 
-  // ✅ Add new patient
-  const handleAddPatient = async (formData: any) => {
-    try {
-      if (!formData.name?.trim()) {
-        alert("⚠️ Please enter the patient's name.");
-        return;
-      }
-
-      const email =
-        formData.email ||
-        `${formData.name.replace(/\s+/g, "").toLowerCase()}@tempmail.com`;
-      const defaultPassword = "123456";
-
-      // Check for existing user
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (existingUser) {
-        alert("⚠️ This email is already registered.");
-        return;
-      }
-
-      // Create user
-      const { data: newUser, error: userError } = await supabase
-        .from("users")
-        .insert([
-          {
-            email,
-            username: formData.name.replace(/\s+/g, "").toLowerCase(),
-            full_name: formData.name,
-            password: defaultPassword,
-            role: "patient",
-          },
-        ])
-        .select()
-        .single();
-
-      if (userError) throw userError;
-
-      // ✅ Create patient with full details
-      const { data: newPatient, error: patientError } = await supabase
-        .from("patients")
-        .insert([
-          {
-            name: formData.name,
-            age: formData.age,
-            gender: formData.gender,
-            date_of_birth: formData.date_of_birth,
-            address: formData.address,
-            phone_number: formData.phone_number,
-            condition: formData.condition,
-            doctor_id: formData.doctor_id || null,
-            user_id: newUser.id,
-          },
-        ])
-        .select("*, doctors(name), users(email)")
-        .single();
-
-      if (patientError) throw patientError;
-
-      setPatients([...patients, newPatient]);
-      resetForm();
-
-      setGeneratedCredentials({
-        name: formData.name,
-        email,
-        password: defaultPassword,
-      });
-      setShowCredentialsModal(true);
-    } catch (error: any) {
-      console.error("Error adding patient:", error.message);
-      alert("❌ Failed to add patient. Check console for details.");
-    }
-  };
-
-  // ✅ Update patient info
-  const handleUpdatePatient = async () => {
-    if (!editingPatient) return;
-
-    try {
-      let userId = editingPatient.user_id;
-
-      if (!userId && formData.email) {
-        const { data: newUser, error: userError } = await supabase
-          .from("users")
-          .insert([{ email: formData.email, password: "123456", role: "patient" }])
-          .select()
-          .single();
-        if (userError) throw userError;
-        userId = newUser.id;
-      }
-
-      const { data, error } = await supabase
-        .from("patients")
-        .update({
-          name: formData.name,
-          age: formData.age,
-          date_of_birth: formData.date_of_birth,
-          address: formData.address,
-          phone_number: formData.phone_number,
-          condition: formData.condition,
-          doctor_id: formData.doctor_id || null,
-          gender: formData.gender,
-          user_id: userId,
-        })
-        .eq("id", editingPatient.id)
-        .select("*, doctors(name), users(email)")
-        .single();
-
-      if (error) throw error;
-
-      setPatients(patients.map((p) => (p.id === editingPatient.id ? data : p)));
-      resetForm();
-    } catch (err: any) {
-      alert("Error updating patient: " + err.message);
-    }
-  };
-
-  // ✅ Delete patient
-  const handleDeletePatient = async (id: number) => {
-    const { error } = await supabase.from("patients").delete().eq("id", id);
-    if (error) {
-      alert("Error deleting patient: " + error.message);
-      return;
-    }
-    setPatients(patients.filter((p) => p.id !== id));
-  };
-
-  // ✅ View details + logs
-  const openViewModal = async (patient: Patient) => {
-    setViewingPatient(patient);
-    try {
-      const [cbgsData, mealsData, activitiesData, loginsData] = await Promise.all([
-        supabase.from("cbgs").select("*").eq("patient_id", patient.id),
-        supabase.from("meals").select("*").eq("patient_id", patient.id),
-        supabase.from("activities").select("*").eq("patient_id", patient.id),
-        supabase.from("logins").select("*").eq("patient_id", patient.id),
-      ]);
-
-      setCbgs(cbgsData.data || []);
-      setMeals(mealsData.data || []);
-      setActivities(activitiesData.data || []);
-      setLogins(loginsData.data || []);
-    } catch (err) {
-      console.error("Error loading patient logs:", err);
-    }
-  };
-
-  const openAddForm = () => {
-    setEditingPatient(null);
-    setFormData({
-      name: "",
-      age: "",
-      gender: "",
-      date_of_birth: "",
-      address: "",
-      phone_number: "",
-      condition: "",
-      doctor_id: "",
-      email: "",
-    });
-    setShowForm(true);
-  };
-
-  const openEditForm = (patient: Patient) => {
-    setEditingPatient(patient);
-    setFormData({
-      ...patient,
-      doctor_id: patient.doctor_id || "",
-      email: patient.users?.email || "",
-    });
-    setShowForm(true);
-  };
-
+  // ✅ Reset form
   const resetForm = () => {
     setFormData({
-      name: "",
-      age: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
+      age: undefined,
       gender: "",
       date_of_birth: "",
-      address: "",
+      street: "",
+      barangay: "",
+      city: "",
+      province: "",
       phone_number: "",
       condition: "",
       doctor_id: "",
       email: "",
+      password: "",
     });
     setEditingPatient(null);
     setShowForm(false);
   };
 
-  const filteredPatients = patients.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ Generate random password
+  const generatePassword = (length = 8) => {
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  };
+
+  // ✅ Combine address parts into a single string
+  const combineAddress = (street?: string, barangay?: string, city?: string, province?: string) => {
+    return [street, barangay, city, province].filter(Boolean).join(", ");
+  };
+
+  // ✅ Handle Add / Update patient
+  const handleSavePatient = async () => {
+    try {
+      const { first_name, middle_name, last_name, street, barangay, city, province } = formData;
+      if (!first_name?.trim() || !last_name?.trim()) {
+        alert("⚠️ Please enter the patient's first and last name.");
+        return;
+      }
+
+      const fullName = `${first_name} ${middle_name || ""} ${last_name}`.trim();
+      const fullAddress = combineAddress(street, barangay, city, province);
+
+      if (editingPatient) {
+        // Update existing patient
+        const { error } = await supabase
+          .from("patients")
+          .update({
+            name: fullName,
+            age: formData.age,
+            gender: formData.gender,
+            date_of_birth: formData.date_of_birth,
+            address: fullAddress,
+            phone_number: formData.phone_number,
+            condition: formData.condition,
+            doctor_id: formData.doctor_id || null,
+          })
+          .eq("id", editingPatient.id);
+
+        if (error) throw error;
+
+        setPatients((prev) =>
+          prev.map((p) =>
+            p.id === editingPatient.id ? { ...p, name: fullName, address: fullAddress, ...formData } : p
+          )
+        );
+        alert("✅ Patient updated successfully!");
+      } else {
+        // Add new patient
+        const email =
+          formData.email ||
+          `${first_name.toLowerCase()}${last_name.toLowerCase()}@gmail.com`;
+        const password = generatePassword();
+        const username =
+          fullName.replace(/\s+/g, "").toLowerCase() +
+          Math.floor(Math.random() * 1000);
+
+        // Step 1: insert into users
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .insert([{ username, email, password, role: "patient" }])
+          .select()
+          .single();
+
+        if (userError) throw userError;
+
+        // Step 2: insert into patients
+        const { data: newPatient, error: insertError } = await supabase
+          .from("patients")
+          .insert([
+            {
+              name: fullName,
+              age: formData.age,
+              gender: formData.gender,
+              date_of_birth: formData.date_of_birth,
+              address: fullAddress,
+              phone_number: formData.phone_number,
+              condition: formData.condition,
+              doctor_id: formData.doctor_id || null,
+              user_id: userData.id,
+              is_archived: false,
+            },
+          ])
+          .select("*, doctors(full_name), users(email)")
+          .single();
+
+        if (insertError) throw insertError;
+
+        setPatients((prev) =>
+          [...prev, newPatient].sort((a, b) => a.name.localeCompare(b.name))
+        );
+
+        alert(
+          `✅ Patient added successfully!\n📧 Email: ${email}\n👤 Username: ${username}\n🔑 Password: ${password}`
+        );
+      }
+
+      resetForm();
+    } catch (error: any) {
+      console.error("Error saving patient:", error.message);
+      alert("❌ Failed to save patient.");
+    }
+  };
+
+  // ✅ Archive patient
+  const handleArchivePatient = async (patientId: number) => {
+    if (!window.confirm("Are you sure you want to archive this patient?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .update({ is_archived: true })
+        .eq("id", patientId);
+
+      if (error) throw error;
+      setPatients((prev) => prev.filter((p) => p.id !== patientId));
+      alert("✅ Patient successfully archived!");
+    } catch (error: any) {
+      console.error("Error archiving patient:", error.message);
+      alert("❌ Failed to archive patient.");
+    }
+  };
+
+  // ✅ Filtered patients
+  const filteredPatients = patients.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCondition = filterCondition ? p.condition === filterCondition : true;
+    const matchesDoctor = filterDoctor ? p.doctor_id === filterDoctor : true;
+    return matchesSearch && matchesCondition && matchesDoctor;
+  });
 
   return (
     <div className="layout-container">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
       <div className="main-content">
         <Topbar activePage={activePage} onSearch={setSearchQuery} />
-
         <div className="page-content">
           <h2>Manage Patients</h2>
-          <button className="add-patient-btn" onClick={openAddForm}>
-            Add Patient
-          </button>
 
+          {/* Filters */}
+          <div className="filters-container">
+            <button className="add-patient-btn" onClick={() => setShowForm(true)}>
+              Add Patient
+            </button>
+
+            <div className="filter-group">
+              <label htmlFor="diabetesFilter">Filter by Diabetic Type:</label>
+              <select
+                id="diabetesFilter"
+                value={filterCondition}
+                onChange={(e) => setFilterCondition(e.target.value)}
+              >
+                <option value="">All Types</option>
+                <option value="Type 1 Diabetes">Type 1 Diabetes</option>
+                <option value="Type 2 Diabetes">Type 2 Diabetes</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="doctorFilter">Filter by Doctor:</label>
+              <select
+                id="doctorFilter"
+                value={filterDoctor}
+                onChange={(e) => setFilterDoctor(e.target.value)}
+              >
+                <option value="">All Doctors</option>
+                {doctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Table */}
           <table className="patients-table">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Age</th>
-                <th>Gender</th>
+                <th>Sex</th>
+                <th>Email</th>
                 <th>Condition</th>
                 <th>Doctor</th>
                 <th>Actions</th>
@@ -305,22 +310,45 @@ const ManagePatients: React.FC = () => {
               {filteredPatients.map((patient) => (
                 <tr key={patient.id}>
                   <td>{patient.name}</td>
-                  <td>{patient.age || "—"}</td>
                   <td>{patient.gender || "—"}</td>
+                  <td>{patient.users?.email || "N/A"}</td>
                   <td>{patient.condition}</td>
-                  <td>{patient.doctors?.name || "No doctor assigned"}</td>
+                  <td>{patient.doctors?.full_name || "No doctor assigned"}</td>
                   <td>
-                    <button className="view-btn" onClick={() => openViewModal(patient)}>
+                    <button
+                      className="view-btn"
+                      onClick={() => setViewingPatient(patient)}
+                    >
                       View
                     </button>
-                    <button className="edit-btn" onClick={() => openEditForm(patient)}>
+                    <button
+                      className="edit-btn"
+                      onClick={() => {
+                        const [first, middle, last] = (patient.name || "").split(" ");
+                        const [street = "", barangay = "", city = "", province = ""] =
+                          (patient.address || "").split(",").map((s) => s.trim());
+                        setEditingPatient(patient);
+                        setFormData({
+                          ...patient,
+                          first_name: first || "",
+                          middle_name: middle || "",
+                          last_name: last || "",
+                          street,
+                          barangay,
+                          city,
+                          province,
+                          email: patient.users?.email || "",
+                        });
+                        setShowForm(true);
+                      }}
+                    >
                       Edit
                     </button>
                     <button
-                      className="delete-btn"
-                      onClick={() => handleDeletePatient(patient.id)}
+                      className="archive-btn"
+                      onClick={() => handleArchivePatient(patient.id)}
                     >
-                      Delete
+                      Archive
                     </button>
                   </td>
                 </tr>
@@ -330,17 +358,39 @@ const ManagePatients: React.FC = () => {
         </div>
       </div>
 
-      {/* ✅ ADD / EDIT FORM */}
+      {/* ✅ Add/Edit Modal */}
       {showForm && (
         <div className="modal">
           <div className="modal-content">
-            <h3>{editingPatient ? "Edit Patient" : "Add New Patient"}</h3>
+            <h3>{editingPatient ? "Edit Patient" : "Add Patient"}</h3>
+
+            <div className="name-fields">
+              <input
+                type="text"
+                placeholder="First Name"
+                value={formData.first_name || ""}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Middle Name (Optional)"
+                value={formData.middle_name || ""}
+                onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Last Name"
+                value={formData.last_name || ""}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+              />
+            </div>
 
             <input
-              type="text"
-              placeholder="Patient Name"
-              value={formData.name || ""}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              type="email"
+              placeholder="Email Address"
+              value={formData.email || ""}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              disabled={!!editingPatient}
             />
 
             <input
@@ -354,37 +404,70 @@ const ManagePatients: React.FC = () => {
               value={formData.gender || ""}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
             >
-              <option value="">Select Gender</option>
+              <option value="">Select Sex</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
             </select>
 
-            <input
-              type="date"
-              placeholder="Date of Birth"
-              value={formData.date_of_birth || ""}
-              onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+            <DatePicker
+              selected={selectedDob}
+              onChange={(date) => {
+                setSelectedDob(date);
+                setFormData({
+                  ...formData,
+                  date_of_birth: date?.toISOString().split("T")[0],
+                });
+              }}
+              placeholderText="Select Date of Birth"
+              className="dob-input"
             />
 
-            <input
-              type="text"
-              placeholder="Address"
-              value={formData.address || ""}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            />
+            {/* ✅ Split Address Fields */}
+            <div className="address-fields">
+              <input
+                type="text"
+                placeholder="Street / House No."
+                value={formData.street || ""}
+                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Barangay"
+                value={formData.barangay || ""}
+                onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="City / Municipality"
+                value={formData.city || ""}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Province / Region"
+                value={formData.province || ""}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+              />
+            </div>
 
             <input
               type="text"
               placeholder="Phone Number"
               value={formData.phone_number || ""}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d*$/.test(value)) {
+                  setFormData({ ...formData, phone_number: value });
+                }
+              }}
+              maxLength={11}
             />
 
             <select
               value={formData.condition || ""}
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
             >
-              <option value="">Select Diabetes Type</option>
+              <option value="">Select Condition</option>
               <option value="Type 1 Diabetes">Type 1 Diabetes</option>
               <option value="Type 2 Diabetes">Type 2 Diabetes</option>
             </select>
@@ -393,31 +476,18 @@ const ManagePatients: React.FC = () => {
               value={formData.doctor_id || ""}
               onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
             >
-              <option value="">Select Doctor</option>
+              <option value="">Assign Doctor</option>
               {doctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>
-                  {doc.name}
+                  {doc.full_name}
                 </option>
               ))}
             </select>
 
-            <input
-              type="email"
-              placeholder="Email"
-              value={formData.email || ""}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-
             <div className="modal-actions">
-              {editingPatient ? (
-                <button className="save-btn" onClick={handleUpdatePatient}>
-                  Update
-                </button>
-              ) : (
-                <button className="save-btn" onClick={() => handleAddPatient(formData)}>
-                  Save
-                </button>
-              )}
+              <button className="save-btn" onClick={handleSavePatient}>
+                {editingPatient ? "Save Changes" : "Add Patient"}
+              </button>
               <button className="cancel-btn" onClick={resetForm}>
                 Cancel
               </button>
@@ -426,130 +496,30 @@ const ManagePatients: React.FC = () => {
         </div>
       )}
 
-      {/* ✅ VIEW PATIENT DETAILS MODAL */}
+      {/* ✅ View Modal */}
       {viewingPatient && (
-        <div className="modal">
-          <div className="modal-content view-modal">
-            <h3>👤 Patient Details</h3>
-            <div className="view-section">
-              <p><strong>Name:</strong> {viewingPatient.name}</p>
-              <p><strong>Email:</strong> {viewingPatient.users?.email || "—"}</p>
-              <p><strong>Gender:</strong> {viewingPatient.gender}</p>
-              <p><strong>Age:</strong> {viewingPatient.age || "—"}</p>
-              <p><strong>Date of Birth:</strong> {viewingPatient.date_of_birth || "—"}</p>
-              <p><strong>Address:</strong> {viewingPatient.address || "—"}</p>
-              <p><strong>Phone:</strong> {viewingPatient.phone_number || "—"}</p>
-              <p><strong>Condition:</strong> {viewingPatient.condition}</p>
-              <p><strong>Doctor:</strong> {viewingPatient.doctors?.name || "—"}</p>
-            </div>
-             <hr style={{ margin: "15px 0" }} />
-
-            {/* 🩸 CBGs */}
-            <div className="view-section">
-              <h4>🩸 Blood Sugar Logs (CBGs)</h4>
-              {cbgs.length > 0 ? (
-                <table className="inner-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Time</th>
-                      <th>Value (mg/dL)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cbgs.map((c, i) => (
-                      <tr key={i}>
-                        <td>{new Date(c.date).toLocaleDateString()}</td>
-                        <td>{c.time || "—"}</td>
-                        <td>{c.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No blood sugar logs found.</p>
-              )}
-            </div>
-
-            {/* 🍽 Meals */}
-            <div className="view-section">
-              <h4>🍽️ Meal Records</h4>
-              {meals.length > 0 ? (
-                <table className="inner-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Meal Type</th>
-                      <th>Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {meals.map((m, i) => (
-                      <tr key={i}>
-                        <td>{new Date(m.date).toLocaleDateString()}</td>
-                        <td>{m.meal_type || "—"}</td>
-                        <td>{m.description || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No meal records found.</p>
-              )}
-            </div>
-
-            {/* 🏃 Activities */}
-            <div className="view-section">
-              <h4>🏃 Activity Records</h4>
-              {activities.length > 0 ? (
-                <table className="inner-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Activity</th>
-                      <th>Duration (mins)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activities.map((a, i) => (
-                      <tr key={i}>
-                        <td>{new Date(a.date).toLocaleDateString()}</td>
-                        <td>{a.activity_type || "—"}</td>
-                        <td>{a.duration || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No activity records found.</p>
-              )}
-            </div>
-
-            {/* 💉 Insulin Logs */}
-            <div className="view-section">
-              <h4>💉 Insulin Logs</h4>
-              {logins.length > 0 ? (
-                <table className="inner-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Time</th>
-                      <th>Dosage (units)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logins.map((ins, i) => (
-                      <tr key={i}>
-                        <td>{new Date(ins.date).toLocaleDateString()}</td>
-                        <td>{ins.time || "—"}</td>
-                        <td>{ins.dosage || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No insulin logs found.</p>
-              )}
+        <div className="modal view-modal">
+          <div className="modal-content">
+            <h3>Patient Details</h3>
+            <div className="patient-card">
+              <p>
+                <strong>Name:</strong> {viewingPatient.name}
+              </p>
+              <p>
+                <strong>Email:</strong> {viewingPatient.users?.email || "—"}
+              </p>
+              <p>
+                <strong>Condition:</strong> {viewingPatient.condition}
+              </p>
+              <p>
+                <strong>Doctor:</strong> {viewingPatient.doctors?.full_name || "—"}
+              </p>
+              <p>
+                <strong>Address:</strong> {viewingPatient.address || "—"}
+              </p>
+              <p>
+                <strong>Phone:</strong> {viewingPatient.phone_number || "—"}
+              </p>
             </div>
 
             <div className="modal-actions">
@@ -560,31 +530,6 @@ const ManagePatients: React.FC = () => {
           </div>
         </div>
       )}
-      {/* ✅ GENERATED CREDENTIALS MODAL */}
-        {showCredentialsModal && generatedCredentials && (
-          <div className="modal">
-            <div className="modal-content credentials-modal">
-              <h3>🪪 Patient Account Created</h3>
-              <p><strong>Name:</strong> {generatedCredentials.name}</p>
-              <p><strong>Email:</strong> {generatedCredentials.email}</p>
-              <p><strong>Temporary Password:</strong> {generatedCredentials.password}</p>
-
-              <p style={{ marginTop: "10px", color: "#555" }}>
-                Please provide these credentials to the patient so they can log in.
-              </p>
-
-              <div className="modal-actions">
-                <button
-                  className="save-btn"
-                  onClick={() => setShowCredentialsModal(false)}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
     </div>
   );
 };

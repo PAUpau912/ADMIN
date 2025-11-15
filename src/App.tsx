@@ -5,14 +5,18 @@ import ManagePatients from "./pages/ManagePatients";
 import ManageDoctors from "./pages/ManageDoctors";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
-import ProtectedRoute from "./components/ProtectedRRoute"; // import natin yung ginawa
+import ProtectedRoute from "./components/ProtectedRRoute";
+import Archive from "./pages/Archive"; // simplified path
+import ForgotPassword from "./pages/forgotpassword";
+import ResetPassword from "./pages/resetpassword";
 
 function App() {
   return (
     <Routes>
       {/* Public page */}
       <Route path="/" element={<Home />} />
-
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       {/* Protected pages */}
       <Route
         path="/dashboard"
@@ -51,6 +55,16 @@ function App() {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 🟢 ARCHIVE PAGE */}
+      <Route
+        path="/archive"
+        element={
+          <ProtectedRoute>
+            <Archive />
           </ProtectedRoute>
         }
       />

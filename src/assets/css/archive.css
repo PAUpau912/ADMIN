@@ -1,0 +1,129 @@
+.dashboard-archive {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+.archive-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  width: 90%;
+  height: 100%;
+  animation: fadeIn 0.3s ease-in;
+  box-sizing: border-box;
+  margin-top: 20px;
+}
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f6fa;
+}
+
+/* Dashboard container */
+.dashboard-content-archive {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;      
+  justify-content: center; 
+  padding-left: 230px;
+  overflow-y: auto;
+  height: 100vh;            
+}
+
+
+.archive-title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #007835;
+  margin-bottom: 1.5rem;
+}
+
+/* Tabs */
+.archive-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 1.5rem;
+}
+
+.archive-tabs button {
+  background: #e6e6e6;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.archive-tabs button.active {
+  background: #007835;
+  color: white;
+}
+
+.archive-tabs button:hover {
+  background: #005c2a;
+  color: white;
+}
+
+/* Table style */
+.table-style {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-style th {
+  background: #007835;
+  color: white;
+  padding: 10px;
+  text-align: left;
+}
+
+.table-style td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.table-style tr:hover {
+  background: #f9f9f9;
+}
+
+/* Buttons */
+.restore-btn {
+  background: #007835;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.restore-btn:hover {
+  background: #005c2a;
+}
+
+.no-data {
+  text-align: center;
+  color: #555;
+  padding: 1rem;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -73,7 +73,7 @@ const handleLogout = () => {
           </li>
 
           <li
-            className={activePage === "Settings" ? "active" : ""}
+            className={activePage === "settings" ? "active" : ""}
             onClick={() => {
               setActivePage("Settings");
               navigate("/settings");
@@ -83,6 +83,17 @@ const handleLogout = () => {
             <span>Settings</span>
           </li>
 
+            {/* 🟢 ARCHIVE PAGE LINK */}
+            <li
+              className={activePage === "Archive" ? "active" : ""}
+              onClick={() => {
+                setActivePage("Archive");
+                navigate("/archive");
+              }}
+            >
+              <i className="fas fa-archive"></i>
+              <span>Archive</span>
+            </li>
         </ul>
       </div>
 

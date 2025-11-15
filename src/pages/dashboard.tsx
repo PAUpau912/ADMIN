@@ -6,6 +6,7 @@ import ManagePatients from "../pages/ManagePatients";
 import ManageDoctors from "../pages/ManageDoctors";
 import Reports from "../pages/Reports";
 import Settings from "../pages/Settings";
+import Archive from "../pages/Archive";
 import { Bar } from "react-chartjs-2";
 import supabase from "../supabaseClient";
 
@@ -53,12 +54,13 @@ const Dashboard: React.FC = () => {
         .select("*", { count: "exact", head: true });
       setTotalReports(reportCount || 0);
 
-      // Recent Reports
+      // Recent Pending Reports
       const { data: reportData } = await supabase
         .from("reports")
         .select("*")
+        .eq("status", "Pending")
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(6);
       setActivities(reportData || []);
 
       // Chart Data: Patients per month
@@ -121,7 +123,7 @@ const Dashboard: React.FC = () => {
               </div>
 
               <div className="recent-activities">
-                <h3>Recent Reports</h3>
+                <h3>Recent Pending Reports</h3>
                 <ul>
                   {activities.length > 0 ? (
                     activities.map((a) => (
@@ -144,6 +146,7 @@ const Dashboard: React.FC = () => {
         {activePage === "Manage Doctors" && <ManageDoctors />}
         {activePage === "Reports" && <Reports />}
         {activePage === "Settings" && <Settings />}
+        {activePage === "Archive" && <Archive />}
       </div>
     </div>
   );
