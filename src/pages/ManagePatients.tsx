@@ -5,12 +5,15 @@ import Topbar from "../components/topbar";
 import supabase from "../supabaseClient";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import bcrypt from "bcryptjs";
 
+// Interfaces
 interface Patient {
   id: number;
   name: string;
   first_name?: string;
   middle_name?: string | null;
+  username?: string | null;
   last_name?: string;
   age?: number;
   date_of_birth?: string;
@@ -32,13 +35,13 @@ interface Doctor {
 interface PatientFormData extends Partial<Patient> {
   email?: string;
   password?: string;
-  generatedPassword?: string;
   street?: string;
   barangay?: string;
   city?: string;
   province?: string;
 }
 
+// Main Component
 const ManagePatients: React.FC = () => {
   const [activePage, setActivePage] = useState("Manage Patients");
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -53,13 +56,14 @@ const ManagePatients: React.FC = () => {
     first_name: "",
     middle_name: "",
     last_name: "",
+    username: "",
     age: undefined,
     gender: "",
     date_of_birth: "",
     street: "",
     barangay: "",
     city: "",
-    province: "",
+    province: "Laguna",
     phone_number: "",
     condition: "",
     doctor_id: "",
@@ -67,8 +71,17 @@ const ManagePatients: React.FC = () => {
     password: "",
   });
   const [selectedDob, setSelectedDob] = useState<Date | null>(null);
+  const [lagunaData, setLagunaData] = useState<Record<string, string[]>>({});
 
-  // ✅ Fetch patients
+  // Fetch Laguna barangays JSON
+  useEffect(() => {
+    fetch("/laguna-barangays.json")
+      .then((res) => res.json())
+      .then((data) => setLagunaData(data))
+      .catch((err) => console.error("Error loading barangays:", err));
+  }, []);
+
+  // Fetch patients
   useEffect(() => {
     const fetchPatients = async () => {
       const { data, error } = await supabase
@@ -83,19 +96,17 @@ const ManagePatients: React.FC = () => {
     fetchPatients();
   }, []);
 
-  // ✅ Fetch doctors
+  // Fetch doctors
   useEffect(() => {
     const fetchDoctors = async () => {
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("id, full_name");
-      if (error) console.error("Error fetching doctors:", error);
+      const { data, error } = await supabase.from("doctors").select("id, full_name");
+      if (error) console.error(error);
       setDoctors(data || []);
     };
     fetchDoctors();
   }, []);
 
-  // ✅ Reset form
+  // Reset form
   const resetForm = () => {
     setFormData({
       first_name: "",
@@ -107,7 +118,7 @@ const ManagePatients: React.FC = () => {
       street: "",
       barangay: "",
       city: "",
-      province: "",
+      province: "Laguna",
       phone_number: "",
       condition: "",
       doctor_id: "",
@@ -116,37 +127,84 @@ const ManagePatients: React.FC = () => {
     });
     setEditingPatient(null);
     setShowForm(false);
+    setSelectedDob(null);
   };
 
-  // ✅ Generate random password
+  // Generate random password
   const generatePassword = (length = 8) => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   };
 
-  // ✅ Combine address parts into a single string
-  const combineAddress = (street?: string, barangay?: string, city?: string, province?: string) => {
-    return [street, barangay, city, province].filter(Boolean).join(", ");
-  };
+  // Combine address
+  const combineAddress = (street?: string, barangay?: string, city?: string, province?: string) =>
+    [street, barangay, city, province].filter(Boolean).join(", ");
 
-  // ✅ Handle Add / Update patient
+  // Save patient
   const handleSavePatient = async () => {
-    try {
-      const { first_name, middle_name, last_name, street, barangay, city, province } = formData;
-      if (!first_name?.trim() || !last_name?.trim()) {
-        alert("⚠️ Please enter the patient's first and last name.");
-        return;
-      }
+  try {
+    const { first_name, middle_name, last_name, street, barangay, city, province } = formData;
+    if (!first_name?.trim() || !last_name?.trim()) {
+      alert("⚠️ Please enter the patient's first and last name.");
+      return;
+    }
 
-      const fullName = `${first_name} ${middle_name || ""} ${last_name}`.trim();
-      const fullAddress = combineAddress(street, barangay, city, province);
+    const fullName = `${first_name} ${middle_name || ""} ${last_name}`.trim();
+    const fullAddress = combineAddress(street, barangay, city, province);
 
-      if (editingPatient) {
-        // Update existing patient
-        const { error } = await supabase
-          .from("patients")
-          .update({
+    if (editingPatient) {
+      // ✅ Update existing patient
+      const { error } = await supabase
+        .from("patients")
+        .update({
+          name: fullName,
+          age: formData.age,
+          gender: formData.gender,
+          date_of_birth: formData.date_of_birth,
+          address: fullAddress,
+          phone_number: formData.phone_number,
+          condition: formData.condition,
+          doctor_id: formData.doctor_id || null,
+        })
+        .eq("id", editingPatient.id);
+
+      if (error) throw error;
+
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === editingPatient.id
+            ? { ...p, name: fullName, address: fullAddress, ...formData }
+            : p
+        )
+      );
+      alert("✅ Patient updated successfully!");
+    } else {
+      // ✅ Add new patient
+      const email =
+        formData.email ||
+        `${first_name.toLowerCase()}${last_name.toLowerCase()}@gmail.com`;
+
+      const rawPassword = generatePassword();
+      const hashedPassword = bcrypt.hashSync(rawPassword, 10); // 🔑 Hash the password
+
+      const username =
+        fullName.replace(/\s+/g, "").toLowerCase() +
+        Math.floor(Math.random() * 1000);
+
+      // Insert into users table with hashed password
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .insert([{ username, email, password: hashedPassword, role: "patient" }])
+        .select()
+        .single();
+      if (userError) throw userError;
+
+      // Insert into patients table
+      const { data: newPatient, error: insertError } = await supabase
+        .from("patients")
+        .insert([
+          {
             name: fullName,
             age: formData.age,
             gender: formData.gender,
@@ -155,75 +213,45 @@ const ManagePatients: React.FC = () => {
             phone_number: formData.phone_number,
             condition: formData.condition,
             doctor_id: formData.doctor_id || null,
-          })
-          .eq("id", editingPatient.id);
+            user_id: userData.id,
+            is_archived: false,
+          },
+        ])
+        .select("*, doctors(full_name), users(email)")
+        .single();
+      if (insertError) throw insertError;
 
-        if (error) throw error;
-
-        setPatients((prev) =>
-          prev.map((p) =>
-            p.id === editingPatient.id ? { ...p, name: fullName, address: fullAddress, ...formData } : p
-          )
-        );
-        alert("✅ Patient updated successfully!");
-      } else {
-        // Add new patient
-        const email =
-          formData.email ||
-          `${first_name.toLowerCase()}${last_name.toLowerCase()}@gmail.com`;
-        const password = generatePassword();
-        const username =
-          fullName.replace(/\s+/g, "").toLowerCase() +
-          Math.floor(Math.random() * 1000);
-
-        // Step 1: insert into users
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .insert([{ username, email, password, role: "patient" }])
-          .select()
-          .single();
-
-        if (userError) throw userError;
-
-        // Step 2: insert into patients
-        const { data: newPatient, error: insertError } = await supabase
-          .from("patients")
-          .insert([
-            {
-              name: fullName,
-              age: formData.age,
-              gender: formData.gender,
-              date_of_birth: formData.date_of_birth,
-              address: fullAddress,
-              phone_number: formData.phone_number,
-              condition: formData.condition,
-              doctor_id: formData.doctor_id || null,
-              user_id: userData.id,
-              is_archived: false,
-            },
-          ])
-          .select("*, doctors(full_name), users(email)")
-          .single();
-
-        if (insertError) throw insertError;
-
-        setPatients((prev) =>
-          [...prev, newPatient].sort((a, b) => a.name.localeCompare(b.name))
-        );
-
-        alert(
-          `✅ Patient added successfully!\n📧 Email: ${email}\n👤 Username: ${username}\n🔑 Password: ${password}`
-        );
+      // Notification for doctor
+      if (formData.doctor_id) {
+        await supabase.from("notifications").insert([
+          {
+            doctor_id: formData.doctor_id,
+            patient_id: newPatient.id,
+            message: `A new patient has been assigned: ${fullName}`,
+            is_read: false,
+          },
+        ]);
       }
 
-      resetForm();
-    } catch (error: any) {
-      console.error("Error saving patient:", error.message);
-      alert("❌ Failed to save patient.");
-    }
-  };
+      // Alert admin with raw password
+      alert(
+        `✅ Patient added successfully!\n📧 Email: ${email}\n👤 Username: ${username}\n🔑 Password: ${rawPassword}`
+      );
 
-  // ✅ Archive patient
+      setPatients((prev) =>
+        [...prev, newPatient].sort((a, b) => a.name.localeCompare(b.name))
+      );
+    }
+
+    resetForm();
+  } catch (error: any) {
+    console.error("Error saving patient:", error.message);
+    alert("❌ Failed to save patient.");
+  }
+};
+
+
+  // Archive patient
   const handleArchivePatient = async (patientId: number) => {
     if (!window.confirm("Are you sure you want to archive this patient?")) return;
 
@@ -232,8 +260,8 @@ const ManagePatients: React.FC = () => {
         .from("patients")
         .update({ is_archived: true })
         .eq("id", patientId);
-
       if (error) throw error;
+
       setPatients((prev) => prev.filter((p) => p.id !== patientId));
       alert("✅ Patient successfully archived!");
     } catch (error: any) {
@@ -242,7 +270,7 @@ const ManagePatients: React.FC = () => {
     }
   };
 
-  // ✅ Filtered patients
+  // Filtered patients
   const filteredPatients = patients.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCondition = filterCondition ? p.condition === filterCondition : true;
@@ -299,6 +327,7 @@ const ManagePatients: React.FC = () => {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>UserName</th>
                 <th>Sex</th>
                 <th>Email</th>
                 <th>Condition</th>
@@ -310,15 +339,13 @@ const ManagePatients: React.FC = () => {
               {filteredPatients.map((patient) => (
                 <tr key={patient.id}>
                   <td>{patient.name}</td>
+                  <td>{patient.username || "—"}</td>
                   <td>{patient.gender || "—"}</td>
                   <td>{patient.users?.email || "N/A"}</td>
                   <td>{patient.condition}</td>
                   <td>{patient.doctors?.full_name || "No doctor assigned"}</td>
                   <td>
-                    <button
-                      className="view-btn"
-                      onClick={() => setViewingPatient(patient)}
-                    >
+                    <button className="view-btn" onClick={() => setViewingPatient(patient)}>
                       View
                     </button>
                     <button
@@ -339,15 +366,13 @@ const ManagePatients: React.FC = () => {
                           province,
                           email: patient.users?.email || "",
                         });
+                        setSelectedDob(patient.date_of_birth ? new Date(patient.date_of_birth) : null);
                         setShowForm(true);
                       }}
                     >
                       Edit
                     </button>
-                    <button
-                      className="archive-btn"
-                      onClick={() => handleArchivePatient(patient.id)}
-                    >
+                    <button className="archive-btn" onClick={() => handleArchivePatient(patient.id)}>
                       Archive
                     </button>
                   </td>
@@ -358,25 +383,28 @@ const ManagePatients: React.FC = () => {
         </div>
       </div>
 
-      {/* ✅ Add/Edit Modal */}
+      {/* Add/Edit Modal */}
       {showForm && (
         <div className="modal">
           <div className="modal-content">
             <h3>{editingPatient ? "Edit Patient" : "Add Patient"}</h3>
 
             <div className="name-fields">
+              <label>First Name:</label>
               <input
                 type="text"
                 placeholder="First Name"
                 value={formData.first_name || ""}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
               />
+              <label>Middle Name (optional):</label>
               <input
                 type="text"
                 placeholder="Middle Name (Optional)"
                 value={formData.middle_name || ""}
                 onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
               />
+              <label>Last Name:</label>
               <input
                 type="text"
                 placeholder="Last Name"
@@ -384,7 +412,7 @@ const ManagePatients: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
               />
             </div>
-
+            <label>Email Address:</label>
             <input
               type="email"
               placeholder="Email Address"
@@ -392,14 +420,14 @@ const ManagePatients: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               disabled={!!editingPatient}
             />
-
+            <label>Age:</label>
             <input
               type="number"
               placeholder="Age"
               value={formData.age || ""}
               onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
             />
-
+          <label>Gender:</label>
             <select
               value={formData.gender || ""}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
@@ -409,60 +437,84 @@ const ManagePatients: React.FC = () => {
               <option value="Female">Female</option>
             </select>
 
+            <label>Date of Birth:</label>
             <DatePicker
               selected={selectedDob}
               onChange={(date) => {
                 setSelectedDob(date);
-                setFormData({
-                  ...formData,
-                  date_of_birth: date?.toISOString().split("T")[0],
-                });
+                setFormData({ ...formData, date_of_birth: date?.toISOString().split("T")[0] });
               }}
-              placeholderText="Select Date of Birth"
+              onChangeRaw={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setFormData({ ...formData, date_of_birth: e.target.value });
+              }}
+              placeholderText="Select Date of Birth (YYYY-MM-DD)"
               className="dob-input"
+              dateFormat="yyyy-MM-dd"
+              isClearable
             />
 
-            {/* ✅ Split Address Fields */}
+            {/* Address Fields */}
             <div className="address-fields">
+              <label>Street / House No.:</label>
               <input
                 type="text"
                 placeholder="Street / House No."
                 value={formData.street || ""}
                 onChange={(e) => setFormData({ ...formData, street: e.target.value })}
               />
-              <input
-                type="text"
-                placeholder="Barangay"
+
+              <label>City / Municipality:</label>
+              <select
+                value={formData.city || ""}
+                onChange={(e) => {
+                  const city = e.target.value;
+                  setFormData({ ...formData, city, barangay: "" });
+                }}
+              >
+                <option value="">Select City</option>
+                {Object.keys(lagunaData).map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+
+              <label>Barangay:</label>
+              <select
                 value={formData.barangay || ""}
                 onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="City / Municipality"
-                value={formData.city || ""}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="Province / Region"
-                value={formData.province || ""}
+                disabled={!formData.city}
+              >
+                <option value="">Select Barangay</option>
+                {formData.city &&
+                  lagunaData[formData.city]?.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+              </select>
+
+              <label>Province / Region:</label>
+              <select
+                value={formData.province || "Laguna"}
                 onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-              />
+              >
+                <option value="Laguna">Laguna</option>
+              </select>
             </div>
 
+            <label>Phone Number:</label>
             <input
               type="text"
               placeholder="Phone Number"
               value={formData.phone_number || ""}
               onChange={(e) => {
                 const value = e.target.value;
-                if (/^\d*$/.test(value)) {
-                  setFormData({ ...formData, phone_number: value });
-                }
+                if (/^\d*$/.test(value)) setFormData({ ...formData, phone_number: value });
               }}
               maxLength={11}
             />
-
+            <label>Diabetic Condition:</label>
             <select
               value={formData.condition || ""}
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
@@ -471,7 +523,8 @@ const ManagePatients: React.FC = () => {
               <option value="Type 1 Diabetes">Type 1 Diabetes</option>
               <option value="Type 2 Diabetes">Type 2 Diabetes</option>
             </select>
-
+            
+            <label>Assign Doctor:</label>
             <select
               value={formData.doctor_id || ""}
               onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
@@ -496,7 +549,7 @@ const ManagePatients: React.FC = () => {
         </div>
       )}
 
-      {/* ✅ View Modal */}
+      {/* View Modal */}
       {viewingPatient && (
         <div className="modal view-modal">
           <div className="modal-content">

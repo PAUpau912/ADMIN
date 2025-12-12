@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import supabase from "../supabaseClient";
 import logo from "../assets/images.png";
 import "../assets/css/home.css";
+import bcrypt from "bcryptjs";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -41,22 +42,26 @@ const ForgotPassword: React.FC = () => {
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (newPassword !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
+  if (newPassword !== confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
 
-    const userId = localStorage.getItem("reset_user_id");
-    if (!userId) {
-      alert("Error: user not found. Please try again.");
-      return;
-    }
+  const userId = localStorage.getItem("reset_user_id");
+  if (!userId) {
+    alert("Error: user not found. Please try again.");
+    return;
+  }
+
+  try {
+    // 🔑 Hash password bago i-save
+    const hashedPassword = bcrypt.hashSync(newPassword, 10); // ✅ sync version
 
     const { error } = await supabase
       .from("users")
-      .update({ password: newPassword })
+      .update({ password: hashedPassword }) // ✅ hashed password
       .eq("id", userId);
 
     if (error) {
@@ -68,7 +73,12 @@ const ForgotPassword: React.FC = () => {
     localStorage.removeItem("reset_user_id");
     alert("✅ Password has been reset successfully!");
     navigate("/");
-  };
+  } catch (err) {
+    console.error("Error hashing password:", err);
+    alert("❌ Something went wrong. Try again.");
+  }
+};
+
 
   return (
     <div className="StartPage">

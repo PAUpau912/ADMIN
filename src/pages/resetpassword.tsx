@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import supabase from "../supabaseClient";
 import logo from "../assets/images.png";
 import "../assets/css/home.css";
+import bcrypt from "bcryptjs";
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState("");
@@ -10,39 +11,45 @@ const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // 🛡️ Check passwords match
-    if (newPassword !== confirmPassword) {
-      alert("❌ Passwords do not match!");
-      return;
-    }
+  // ✅ Check if passwords match
+  if (newPassword !== confirmPassword) {
+    alert("❌ Passwords do not match!");
+    return;
+  }
 
-    // 🧾 Get user id from localStorage (set in ForgotPassword)
-    const userId = localStorage.getItem("reset_user_id");
-    if (!userId) {
-      alert("⚠️ No user found. Please verify your email again.");
-      navigate("/forgot-password");
-      return;
-    }
+  const userId = localStorage.getItem("reset_user_id");
+  if (!userId) {
+    alert("⚠️ No user found. Please verify your email again.");
+    navigate("/forgot-password");
+    return;
+  }
 
-    // 🟢 Update password in users table
-    const { error } = await supabase
+  try {
+    // 🔑 Hash the password **asynchronously**
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    console.log("Hashed password:", hashedPassword); // ✅ For debugging
+
+    // ✅ Update password in custom users table
+    const { data, error } = await supabase
       .from("users")
-      .update({ password: newPassword })
+      .update({ password: hashedPassword })
       .eq("id", userId);
 
-    if (error) {
-      console.error("Error updating password:", error);
-      alert("❌ Failed to reset password. Try again.");
-      return;
-    }
+    if (error) throw error;
 
-    // 🧹 Clean up + redirect
+    console.log("Update result:", data);
+
+    // ✅ Cleanup and redirect
     localStorage.removeItem("reset_user_id");
     alert("✅ Password reset successfully!");
     navigate("/");
-  };
+  } catch (err) {
+    console.error("❌ Error resetting password:", err);
+    alert("❌ Failed to reset password. Try again.");
+  }
+};
 
   return (
     <div className="StartPage">

@@ -4,6 +4,7 @@ import Sidebar from "../components/sidebar";
 import Topbar from "../components/topbar";
 import { FaEye, FaEyeSlash, FaCamera } from "react-icons/fa";
 import supabase from "../supabaseClient";
+import bcrypt from "bcryptjs";
 
 const Settings: React.FC = () => {
   // ✅ Separate fields for name parts
@@ -109,54 +110,66 @@ const Settings: React.FC = () => {
 
   // ✅ Save changes
   const handleSaveChanges = async () => {
-    if (!firstName || !lastName || !username || !email) {
-      alert("Please fill in all required fields.");
-      return;
-    }
+  if (!firstName || !lastName || !username || !email) {
+    alert("Please fill in all required fields.");
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match.");
-      return;
-    }
+  // ✅ Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+  if (!emailRegex.test(email)) {
+    alert("Please enter a valid email address (e.g., example@gmail.com).");
+    return;
+  }
 
-    const storedEmail = localStorage.getItem("adminEmail");
-    if (!storedEmail) {
-      alert("No logged-in admin found!");
-      return;
-    }
+  if (password !== confirmPassword) {
+    alert("Passwords do not match.");
+    return;
+  }
 
-    // ✅ Combine full name from parts
-    const fullName = [firstName, middleName, lastName]
-      .filter((part) => part.trim() !== "")
-      .join(" ");
+  const storedEmail = localStorage.getItem("adminEmail");
+  if (!storedEmail) {
+    alert("No logged-in admin found!");
+    return;
+  }
 
-    // ✅ Upload new profile picture (if any)
-    const uploadedProfileUrl = await handleUploadProfile();
+  // ✅ Combine full name
+  const fullName = [firstName, middleName, lastName]
+    .filter((part) => part.trim() !== "")
+    .join(" ");
 
-    const updateData: any = {
-      username,
-      full_name: fullName,
-      email,
-    };
-    if (password) updateData.password = password;
+  // ✅ Upload profile picture
+  const uploadedProfileUrl = await handleUploadProfile();
 
-    const { error } = await supabase
-      .from("users")
-      .update(updateData)
-      .eq("email", storedEmail);
-
-    if (error) {
-      console.error("Error updating profile:", error);
-      alert("Failed to update account settings.");
-      return;
-    }
-
-    localStorage.setItem("adminEmail", email);
-    setProfileUrl(uploadedProfileUrl);
-    setNewProfileFile(null);
-
-    alert("✅ Account settings updated successfully!");
+  const updateData: any = {
+    username,
+    full_name: fullName,
+    email,
   };
+
+  // 🔑 Hash password if user entered a new one
+  if (password) {
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    updateData.password = hashedPassword;
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update(updateData)
+    .eq("email", storedEmail);
+
+  if (error) {
+    console.error("Error updating profile:", error);
+    alert("Failed to update account settings.");
+    return;
+  }
+
+  localStorage.setItem("adminEmail", email);
+  setProfileUrl(uploadedProfileUrl);
+  setNewProfileFile(null);
+
+  alert("✅ Account settings updated successfully!");
+};
 
   const handleProfileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

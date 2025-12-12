@@ -33,6 +33,7 @@ const Dashboard: React.FC = () => {
     labels: [],
     datasets: [],
   });
+  
 
   useEffect(() => {
     const fetchStats = async () => {

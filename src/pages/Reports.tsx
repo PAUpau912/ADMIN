@@ -131,7 +131,6 @@ const Reports: React.FC = () => {
           user_id: userId,
           title: newTitle,
           report_data: newDescription,
-          doctor_name: userData.full_name,
           status: status,
           created_at: formattedDate,
           is_archived: false,

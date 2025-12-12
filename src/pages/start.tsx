@@ -6,6 +6,7 @@ import logo from "../assets/images.png";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import supabase from "../supabaseClient";
+import bcrypt from "bcryptjs"; // ✅ fixed import
 
 const Home = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -44,12 +45,15 @@ const Home = () => {
           return;
         }
 
+        // 🔑 Hash the password before inserting
+        const hashedPassword = bcrypt.hashSync(password, 10);
+
         const { error } = await supabase.from("users").insert([
           {
             full_name: fullName,
             username,
             email,
-            password,
+            password: hashedPassword, // store hashed password
             role: "admin", // 🟢 Admin only signup form
             created_at: new Date().toISOString(),
           },
@@ -60,7 +64,7 @@ const Home = () => {
         alert("✅ Admin account created successfully! Please log in.");
         setIsSignUp(false);
       } else {
-        // ✅ Login flow
+        // ✅ Login flow with hybrid password check
         const { data, error } = await supabase
           .from("users")
           .select("*")
@@ -72,7 +76,27 @@ const Home = () => {
           return;
         }
 
-        if (data.password !== password) {
+        let isMatch = false;
+
+        // Check if password is hashed
+        if (data.password.startsWith("$2a$") || data.password.startsWith("$2b$")) {
+          // ✅ Hashed password
+          isMatch = bcrypt.compareSync(password, data.password);
+        } else {
+          // 🔑 Plain text password (existing user)
+          if (password === data.password) {
+            isMatch = true;
+
+            // Update the DB with hashed password
+            const hashedPassword = bcrypt.hashSync(password, 10);
+            await supabase
+              .from("users")
+              .update({ password: hashedPassword })
+              .eq("id", data.id);
+          }
+        }
+
+        if (!isMatch) {
           alert("❌ Wrong password.");
           return;
         }
@@ -184,9 +208,7 @@ const Home = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <i
-                className={`fas ${
-                  showPassword ? "fa-eye-slash" : "fa-eye"
-                } TogglePasswordIcon`}
+                className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"} TogglePasswordIcon`}
                 onClick={togglePasswordVisibility}
                 style={{
                   cursor: "pointer",
@@ -209,9 +231,7 @@ const Home = () => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
                 <i
-                  className={`fas ${
-                    showPassword ? "fa-eye-slash" : "fa-eye"
-                  } TogglePasswordIcon`}
+                  className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"} TogglePasswordIcon`}
                   onClick={togglePasswordVisibility}
                   style={{
                     cursor: "pointer",
@@ -224,24 +244,24 @@ const Home = () => {
               </div>
             )}
 
-              {/* Login Button */}
-              <button type="submit" className="LoginButton btn w-100">
-                {isSignUp ? "Sign Up" : "Login"}
-              </button>
+            {/* Login Button */}
+            <button type="submit" className="LoginButton btn w-100">
+              {isSignUp ? "Sign Up" : "Login"}
+            </button>
 
-              {/* Forgot Password */}
-              {!isSignUp && (
-                <div className="text-center mt-3">
-                  <button
-                    type="button"
-                    className="btn btn-link p-0"
-                    style={{ color: "#007835", textDecoration: "underline" }}
-                    onClick={() => navigate("/forgot-password")}
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-              )}
+            {/* Forgot Password */}
+            {!isSignUp && (
+              <div className="text-center mt-3">
+                <button
+                  type="button"
+                  className="btn btn-link p-0"
+                  style={{ color: "#007835", textDecoration: "underline" }}
+                  onClick={() => navigate("/forgot-password")}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
           </form>
 
           <div className="SignUpLink text-center mt-3">
@@ -271,7 +291,6 @@ const Home = () => {
               </p>
             )}
           </div>
-          
         </div>
       </div>
     </div>

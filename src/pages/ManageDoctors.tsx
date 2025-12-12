@@ -3,6 +3,7 @@ import "../assets/css/managedoctors.css";
 import Sidebar from "../components/sidebar";
 import Topbar from "../components/topbar";
 import supabase from "../supabaseClient";
+import bcrypt from "bcryptjs";
 
 interface Doctor {
   id: number;
@@ -50,7 +51,7 @@ const ManageDoctors: React.FC = () => {
     city: "",
     province: "",
   });
-
+  const [lagunaData, setLagunaData] = useState<Record<string, string[]>>({});
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<{
     name: string;
@@ -58,7 +59,15 @@ const ManageDoctors: React.FC = () => {
     password: string;
   } | null>(null);
 
-  // ✅ Fetch doctors
+  // Fetch Laguna barangays JSON
+  useEffect(() => {
+    fetch("/laguna-barangays.json")
+      .then((res) => res.json())
+      .then((data) => setLagunaData(data))
+      .catch((err) => console.error("Error loading barangays:", err));
+  }, []);
+
+  // Fetch doctors
   const fetchDoctors = async () => {
     const { data, error } = await supabase
       .from("doctors")
@@ -76,7 +85,7 @@ const ManageDoctors: React.FC = () => {
     fetchDoctors();
   }, []);
 
-  // ✅ Combine address fields into one string
+  // Combine address fields into one string
   const getFullAddress = () => {
     const parts = [
       formData.street,
@@ -87,119 +96,119 @@ const ManageDoctors: React.FC = () => {
     return parts.join(", ");
   };
 
-  // ✅ Add or Update doctor
+  // Add or Update doctor
   const handleSaveDoctor = async () => {
-    try {
-      if (!formData.first_name?.trim() || !formData.last_name?.trim()) {
-        alert("⚠️ Please enter the doctor's first and last name.");
-        return;
-      }
-
-      if (!formData.email?.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
-        alert("⚠️ Please enter a valid email address.");
-        return;
-      }
-
-      if (!/^\d{11}$/.test(formData.phone_number || "")) {
-        alert("⚠️ Phone number must contain exactly 11 digits.");
-        return;
-      }
-
-      const fullName = `${formData.first_name} ${formData.middle_name || ""} ${formData.last_name}`.trim();
-      const fullAddress = getFullAddress();
-
-      if (editingDoctor) {
-        // 🩺 Update existing doctor
-        const { error } = await supabase
-          .from("doctors")
-          .update({
-            first_name: formData.first_name,
-            middle_name: formData.middle_name || null,
-            last_name: formData.last_name,
-            full_name: fullName,
-            specialization: formData.specialization,
-            phone_number: formData.phone_number,
-            address: fullAddress,
-            gender: formData.gender,
-            prc_license: formData.prc_license,
-            hospital_affiliate: formData.hospital_affiliate,
-          })
-          .eq("id", editingDoctor.id);
-
-        if (error) throw error;
-        alert("✅ Doctor updated successfully!");
-      } else {
-        // 🆕 Add new doctor
-        const generateRandomPassword = (length = 8) => {
-          const chars =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
-          return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-        };
-        const randomPassword = generateRandomPassword();
-
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("email", formData.email)
-          .maybeSingle();
-
-        if (existingUser) {
-          alert("⚠️ This email is already registered.");
-          return;
-        }
-
-        const { data: newUser, error: userError } = await supabase
-          .from("users")
-          .insert([
-            {
-              email: formData.email,
-              username: fullName.replace(/\s+/g, "").toLowerCase(),
-              full_name: fullName,
-              password: randomPassword,
-              role: "doctor",
-            },
-          ])
-          .select()
-          .single();
-
-        if (userError) throw userError;
-
-        const { error: doctorError } = await supabase.from("doctors").insert([
-          {
-            first_name: formData.first_name,
-            middle_name: formData.middle_name || null,
-            last_name: formData.last_name,
-            full_name: fullName,
-            specialization: formData.specialization,
-            phone_number: formData.phone_number,
-            address: fullAddress,
-            gender: formData.gender,
-            prc_license: formData.prc_license,
-            hospital_affiliate: formData.hospital_affiliate,
-            user_id: newUser.id,
-          },
-        ]);
-
-        if (doctorError) throw doctorError;
-
-        setGeneratedCredentials({
-          name: fullName,
-          email: formData.email!,
-          password: randomPassword,
-        });
-        setShowCredentialsModal(true);
-        alert("✅ Doctor added successfully!");
-      }
-
-      await fetchDoctors();
-      resetForm();
-    } catch (error: any) {
-      console.error("❌ Error saving doctor:", error);
-      alert("❌ Failed to save doctor. Check console for details.");
+  try {
+    if (!formData.first_name?.trim() || !formData.last_name?.trim()) {
+      alert("⚠️ Please enter the doctor's first and last name.");
+      return;
     }
-  };
 
-  // ✅ Archive doctor
+    if (!formData.email?.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
+      alert("⚠️ Please enter a valid email address.");
+      return;
+    }
+
+    const fullName = `${formData.first_name} ${formData.middle_name || ""} ${formData.last_name}`.trim();
+    const fullAddress = getFullAddress();
+
+    if (editingDoctor) {
+      // 🔹 Update existing doctor
+      const { error } = await supabase
+        .from("doctors")
+        .update({
+          first_name: formData.first_name,
+          middle_name: formData.middle_name || null,
+          last_name: formData.last_name,
+          full_name: fullName,
+          specialization: formData.specialization,
+          phone_number: formData.phone_number,
+          address: fullAddress,
+          gender: formData.gender,
+          prc_license: formData.prc_license,
+          hospital_affiliate: formData.hospital_affiliate,
+        })
+        .eq("id", editingDoctor.id);
+
+      if (error) throw error;
+      alert("✅ Doctor updated successfully!");
+    } else {
+      // 🔹 Add new doctor
+      const generateRandomPassword = (length = 8) => {
+        const chars =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+        return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      };
+      const rawPassword = generateRandomPassword();
+      const hashedPassword = bcrypt.hashSync(rawPassword, 10); // 🔑 Hash the password
+
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", formData.email)
+        .maybeSingle();
+
+      if (existingUser) {
+        alert("⚠️ This email is already registered.");
+        return;
+      }
+
+      // 🔹 Save to users with hashed password and form email only
+      const { data: newUser, error: userError } = await supabase
+        .from("users")
+        .insert([
+          {
+            email: formData.email, // email from form only
+            username: fullName.replace(/\s+/g, "").toLowerCase(),
+            full_name: fullName,
+            password: hashedPassword, // save hashed
+            role: "doctor",
+          },
+        ])
+        .select()
+        .single();
+
+      if (userError) throw userError;
+
+      // 🔹 Save doctor profile
+      const { error: doctorError } = await supabase.from("doctors").insert([
+        {
+          first_name: formData.first_name,
+          middle_name: formData.middle_name || null,
+          last_name: formData.last_name,
+          full_name: fullName,
+          specialization: formData.specialization,
+          phone_number: formData.phone_number,
+          address: fullAddress,
+          gender: formData.gender,
+          prc_license: formData.prc_license,
+          hospital_affiliate: formData.hospital_affiliate,
+          user_id: newUser.id,
+        },
+      ]);
+
+      if (doctorError) throw doctorError;
+
+      // 🔹 Show admin the raw password (not saved)
+      setGeneratedCredentials({
+        name: fullName,
+        email: formData.email!,
+        password: rawPassword,
+      });
+      setShowCredentialsModal(true);
+
+      alert("✅ Doctor added successfully!");
+    }
+
+    await fetchDoctors();
+    resetForm();
+  } catch (error: any) {
+    console.error("❌ Error saving doctor:", error);
+    alert("❌ Failed to save doctor. Check console for details.");
+  }
+};
+
+  // Archive doctor
   const handleDeleteDoctor = async (doctorId: number) => {
     const confirmArchive = window.confirm("Are you sure you want to archive this doctor?");
     if (!confirmArchive) return;
@@ -239,7 +248,6 @@ const ManageDoctors: React.FC = () => {
     setShowForm(false);
   };
 
-  // ✅ Combine search and specialization filters
   const filteredDoctors = doctors.filter((d) => {
     const fullName = `${d.first_name} ${d.middle_name || ""} ${d.last_name}`.toLowerCase();
     const matchesSearch = fullName.includes(searchQuery.toLowerCase());
@@ -410,7 +418,7 @@ const ManageDoctors: React.FC = () => {
               <option value="Female">Female</option>
             </select>
 
-            {/* ✅ Split Address Fields */}
+            {/* Address Fields */}
             <h4>Address</h4>
             <input
               type="text"
@@ -418,24 +426,37 @@ const ManageDoctors: React.FC = () => {
               value={formData.street || ""}
               onChange={(e) => setFormData({ ...formData, street: e.target.value })}
             />
-            <input
-              type="text"
-              placeholder="Barangay"
+
+            <label>City / Municipality:</label>
+            <select
+              value={formData.city || ""}
+              onChange={(e) => {
+                const city = e.target.value;
+                setFormData({ ...formData, city, barangay: "" });
+              }}
+            >
+              <option value="">Select City</option>
+              {Object.keys(lagunaData).map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+
+            <label>Barangay:</label>
+            <select
               value={formData.barangay || ""}
               onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="City / Municipality"
-              value={formData.city || ""}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Province / Region"
-              value={formData.province || ""}
-              onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-            />
+              disabled={!formData.city}
+            >
+              <option value="">Select Barangay</option>
+              {formData.city &&
+                lagunaData[formData.city]?.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+            </select>
 
             <div className="modal-actions">
               <button className="save-btn" onClick={handleSaveDoctor}>
@@ -449,7 +470,7 @@ const ManageDoctors: React.FC = () => {
         </div>
       )}
 
-      {/* CREDENTIALS MODAL */}
+      {/* Credentials Modal */}
       {showCredentialsModal && generatedCredentials && (
         <div className="modal-overlay">
           <div className="modal-content credentials-modal">
