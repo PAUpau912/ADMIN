@@ -27,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage = "", setActivePage }) => 
   return (
     <div className="sidebar">
       <div>
-        <img src="src/assets/images.png" alt="App Logo" className="sidebar-logo" />
+        <img src="/src/assets/images.png" alt="App Logo" className="sidebar-logo" />
         <h3>SPC Medical</h3>
 
         <ul className="sidebar-menu">
@@ -92,3 +92,4 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage = "", setActivePage }) => 
 };
 
 export default Sidebar;
+
