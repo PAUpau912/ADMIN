@@ -3,37 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import '../assets/css/sidebar.css';
 
 interface SidebarProps {
-  activePage: string;
-  setActivePage: (page: string) => void;
+  activePage?: string;
+  setActivePage?: (page: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage = "", setActivePage }) => {
   const navigate = useNavigate();
 
-const handleLogout = () => {
-  // tanggalin lahat ng tokens/session
-  localStorage.removeItem("isAuthenticated");
-  localStorage.clear();
-  sessionStorage.clear();
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    localStorage.clear();
+    sessionStorage.clear();
 
-  // redirect to login/start page at i-replace history
-  navigate("/", { replace: true });
-};
+    navigate("/", { replace: true });
+  };
 
-
+  // Helper function para safe kahit wala setActivePage
+  const handleNav = (page: string, path: string) => {
+    if (setActivePage) setActivePage(page);
+    navigate(path);
+  };
 
   return (
     <div className="sidebar">
       <div>
         <img src="src/assets/images.png" alt="App Logo" className="sidebar-logo" />
         <h3>SPC Medical</h3>
+
         <ul className="sidebar-menu">
           <li
             className={activePage === "dashboard" ? "active" : ""}
-            onClick={() => {
-              setActivePage("dashboard");
-              navigate("/dashboard");
-            }}
+            onClick={() => handleNav("dashboard", "/dashboard")}
           >
             <i className="fas fa-tachometer-alt"></i>
             <span>Dashboard</span>
@@ -41,10 +41,7 @@ const handleLogout = () => {
 
           <li
             className={activePage === "Manage Patients" ? "active" : ""}
-            onClick={() => {
-              setActivePage("Manage Patients");
-              navigate("/manage-patients");
-            }}
+            onClick={() => handleNav("Manage Patients", "/manage-patients")}
           >
             <i className="fas fa-user-injured"></i>
             <span>Manage Patients</span>
@@ -52,10 +49,7 @@ const handleLogout = () => {
 
           <li
             className={activePage === "Manage Doctors" ? "active" : ""}
-            onClick={() => {
-              setActivePage("Manage Doctors");
-              navigate("/manage-doctors");
-            }}
+            onClick={() => handleNav("Manage Doctors", "/manage-doctors")}
           >
             <i className="fas fa-file-medical"></i>
             <span>Manage Doctors</span>
@@ -63,41 +57,30 @@ const handleLogout = () => {
 
           <li
             className={activePage === "Reports" ? "active" : ""}
-            onClick={() => {
-              setActivePage("Reports");
-              navigate("/reports");
-            }}
+            onClick={() => handleNav("Reports", "/reports")}
           >
             <i className="fas fa-file-alt"></i>
             <span>Reports</span>
           </li>
 
           <li
-            className={activePage === "settings" ? "active" : ""}
-            onClick={() => {
-              setActivePage("Settings");
-              navigate("/settings");
-            }}
+            className={activePage === "Settings" ? "active" : ""}
+            onClick={() => handleNav("Settings", "/settings")}
           >
             <i className="fas fa-cog"></i>
             <span>Settings</span>
           </li>
 
-            {/* 🟢 ARCHIVE PAGE LINK */}
-            <li
-              className={activePage === "Archive" ? "active" : ""}
-              onClick={() => {
-                setActivePage("Archive");
-                navigate("/archive");
-              }}
-            >
-              <i className="fas fa-archive"></i>
-              <span>Archive</span>
-            </li>
+          <li
+            className={activePage === "Archive" ? "active" : ""}
+            onClick={() => handleNav("Archive", "/archive")}
+          >
+            <i className="fas fa-archive"></i>
+            <span>Archive</span>
+          </li>
         </ul>
       </div>
 
-      {/* 🔴 Logout button sa baba */}
       <div className="sidebar-logout">
         <button className="logout-btn" onClick={handleLogout}>
           <i className="fas fa-sign-out-alt"></i>

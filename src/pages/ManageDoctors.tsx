@@ -17,7 +17,7 @@ interface Doctor {
   prc_license?: string;
   hospital_affiliate?: string;
   user_id?: string | null;
-  users?: { email: string };
+  users?: { email: string }[];
 }
 
 interface DoctorFormData extends Partial<Doctor> {
@@ -314,7 +314,7 @@ const ManageDoctors: React.FC = () => {
                           setEditingDoctor(doctor);
                           setFormData({
                             ...doctor,
-                            email: doctor.users?.email || "",
+                            email: doctor.users?.[0]?.email || "",
                             street: addressParts[0] || "",
                             barangay: addressParts[1] || "",
                             city: addressParts[2] || "",

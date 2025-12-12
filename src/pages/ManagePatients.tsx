@@ -439,19 +439,25 @@ const ManagePatients: React.FC = () => {
 
             <label>Date of Birth:</label>
             <DatePicker
-              selected={selectedDob}
-              onChange={(date) => {
-                setSelectedDob(date);
-                setFormData({ ...formData, date_of_birth: date?.toISOString().split("T")[0] });
-              }}
-              onChangeRaw={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setFormData({ ...formData, date_of_birth: e.target.value });
-              }}
-              placeholderText="Select Date of Birth (YYYY-MM-DD)"
-              className="dob-input"
-              dateFormat="yyyy-MM-dd"
-              isClearable
-            />
+            selected={selectedDob}
+            onChange={(date: Date | null) => {
+              setSelectedDob(date);
+              setFormData({
+                ...formData,
+                date_of_birth: date ? date.toISOString().split("T")[0] : "",
+              });
+            }}
+            onChangeRaw={(e: any) => {
+              e.preventDefault();  // para hindi sumira ng calendar
+              setFormData({
+                ...formData,
+                date_of_birth: e.target.value,
+              });
+            }}
+            dateFormat="yyyy-MM-dd"
+            placeholderText="YYYY-MM-DD"
+          />
+
 
             {/* Address Fields */}
             <div className="address-fields">
